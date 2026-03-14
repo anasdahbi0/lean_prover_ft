@@ -17,6 +17,12 @@ import os
 import subprocess
 import tempfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
+
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle each request in a separate thread."""
+    daemon_threads = True
 
 LAKE_PATH = os.path.expanduser("~/.elan/bin/lake")
 
@@ -72,7 +78,7 @@ def main():
 
     print(f"Lean REPL server listening on port {args.port}")
     print(f"Workspace: {args.workspace}")
-    HTTPServer(("0.0.0.0", args.port), LeanHandler).serve_forever()
+    ThreadedHTTPServer(("0.0.0.0", args.port), LeanHandler).serve_forever()
 
 
 if __name__ == "__main__":
