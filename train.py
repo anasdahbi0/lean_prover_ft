@@ -177,7 +177,11 @@ def main():
     logger = logging.getLogger(__name__)
 
     model_name = cfg["model"]["name"]
-    checkpoint_dir = os.path.join(cfg["paths"]["checkpoint_dir"], "qwen3_4b_lean")
+    # Use hub_model_id as checkpoint subdir name if pushing to hub, else default
+    hf_cfg = cfg.get("huggingface", {})
+    hub_model_id = hf_cfg.get("hub_model_id")
+    ckpt_name = hub_model_id.split("/")[-1] if hub_model_id else "qwen3_4b_lean"
+    checkpoint_dir = os.path.join(cfg["paths"]["checkpoint_dir"], ckpt_name)
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     # ------------------------------------------------------------------
@@ -229,7 +233,12 @@ def main():
     # ------------------------------------------------------------------
     # Data
     # ------------------------------------------------------------------
-    train_path = os.path.join(cfg["paths"]["data_dir"], "lean_workbook_train.jsonl")
+    # config_exp2.yaml uses paths.train_data; fall back to lean_workbook_train.jsonl
+    train_path = cfg["paths"].get("train_data") or os.path.join(
+        cfg["paths"]["data_dir"], "lean_workbook_train.jsonl"
+    )
+    if not os.path.isabs(train_path):
+        train_path = str(SCRIPT_DIR / train_path)
     logger.info(f"Loading training data: {train_path}")
     raw_data = load_jsonl(train_path)
     logger.info(f"Training examples: {len(raw_data)}")
@@ -280,6 +289,13 @@ def main():
     logger.info(f"Saving adapter to {checkpoint_dir}")
     model.save_pretrained(checkpoint_dir)
     tokenizer.save_pretrained(checkpoint_dir)
+
+    if hf_cfg.get("push_to_hub") and hub_model_id:
+        logger.info(f"Pushing adapter to HuggingFace: {hub_model_id}")
+        model.push_to_hub(hub_model_id)
+        tokenizer.push_to_hub(hub_model_id)
+        logger.info(f"Pushed to {hub_model_id}")
+
     logger.info("Training complete.")
 
 

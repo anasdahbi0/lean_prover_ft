@@ -7,7 +7,9 @@ Run:
 """
 
 import json
+import logging
 import os
+import random
 import re
 from pathlib import Path
 
@@ -129,6 +131,120 @@ def prepare_lean_workbook(output_path):
 
 
 # ---------------------------------------------------------------------------
+# Goedel-Pset-v1-solved
+# ---------------------------------------------------------------------------
+
+def _extract_lean_block(text: str) -> str:
+    """Return the content of the last ```lean4 ... ``` fenced block in text."""
+    matches = list(re.finditer(r"```lean4\s*\n(.*?)```", text, re.DOTALL))
+    if not matches:
+        return ""
+    return matches[-1].group(1).strip()
+
+
+def _parse_sft_row(example):
+    """
+    Parse one row from Goedel-LM/SFT_dataset_v2.
+    Each row has a 'messages' list: [{role, content}, {role, content}].
+
+    User content:
+        "Complete the following Lean 4 code:\n\n```lean4\n...theorem ... := by sorry```\n\n..."
+        → extract the lean4 block, strip trailing 'sorry' to get statement ending in ':= by'
+
+    Assistant content:
+        Long reasoning trace ending with a ```lean4\ntheorem ... := by\n  <proof>\n``` block.
+        → extract the last lean4 block, then split on ':= by' to get just the tactic proof.
+
+    Returns (statement, proof) or (None, None) on failure.
+    """
+    messages = example.get("messages", [])
+    if len(messages) < 2:
+        return None, None
+
+    user_content = messages[0].get("content", "")
+    assistant_content = messages[1].get("content", "")
+
+    # --- Statement from user content ---
+    user_lean = _extract_lean_block(user_content)
+    if not user_lean:
+        return None, None
+
+    # Find theorem/lemma declaration
+    thm_match = re.search(r"^(theorem|lemma)\s+", user_lean, re.MULTILINE)
+    if not thm_match:
+        return None, None
+
+    body = user_lean[thm_match.start():]
+    idx = body.rfind(":= by")
+    if idx == -1:
+        return None, None
+
+    # Strip everything after ':= by' (which is ' sorry' in the user prompt)
+    statement = body[: idx + len(":= by")]
+
+    # --- Proof from assistant content ---
+    asst_lean = _extract_lean_block(assistant_content)
+    if not asst_lean:
+        return None, None
+
+    # Split on last ':= by' to isolate tactic proof body
+    proof_idx = asst_lean.rfind(":= by")
+    if proof_idx == -1:
+        return None, None
+
+    proof = asst_lean[proof_idx + len(":= by"):].strip()
+    if not proof or "sorry" in proof:
+        return None, None
+
+    return statement, proof
+
+
+def prepare_goedel_pset(output_path: str, n: int = 100_000, seed: int = 42):
+    """
+    Download Goedel-LM/SFT_dataset_v2 via streaming and reservoir-sample n rows.
+    Extract (statement, proof) pairs from the messages format.
+    Idempotent: skips if output_path already exists and is non-empty.
+    """
+    if os.path.exists(output_path):
+        existing_count = sum(1 for _ in open(output_path, encoding="utf-8") if _.strip())
+        if existing_count > 0:
+            print(f"goedel_pset_100k.jsonl    : {existing_count} rows  (already exists, skipping)")
+            return
+
+    print(f"Downloading Goedel-LM/SFT_dataset_v2 (streaming, sampling {n:,}) ...")
+    ds = load_dataset("Goedel-LM/SFT_dataset_v2", split="train", streaming=True)
+
+    rng = random.Random(seed)
+    reservoir = []
+    for i, row in enumerate(ds):
+        if len(reservoir) < n:
+            reservoir.append(row)
+        else:
+            j = rng.randint(0, i)
+            if j < n:
+                reservoir[j] = row
+        if (i + 1) % 100_000 == 0:
+            print(f"  streamed {i + 1:,} rows, reservoir={len(reservoir):,} ...")
+
+    print(f"Sampled:   {len(reservoir):,}")
+
+    rows = []
+    skipped = 0
+    for i, example in enumerate(reservoir):
+        statement, proof = _parse_sft_row(example)
+        if statement is None:
+            skipped += 1
+            continue
+        rows.append({"id": f"goedel_pset_{i}", "statement": statement, "proof": proof})
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    save_jsonl(output_path, rows)
+    print(f"Extracted: {len(rows):,}")
+    print(f"Skipped:   {skipped:,}")
+    print(f"Saved to:  {output_path}")
+
+
+# ---------------------------------------------------------------------------
 # miniF2F
 # ---------------------------------------------------------------------------
 
@@ -204,12 +320,29 @@ def prepare_minif2f(output_test, output_valid):
 # ---------------------------------------------------------------------------
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--goedel-pset", action="store_true",
+                        help="Only run prepare_goedel_pset()")
+    parser.add_argument("--n", type=int, default=100_000,
+                        help="Number of rows to sample (default 100000)")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
     os.makedirs(DATA_DIR, exist_ok=True)
-    prepare_lean_workbook(os.path.join(DATA_DIR, "lean_workbook_train.jsonl"))
-    prepare_minif2f(
-        os.path.join(DATA_DIR, "minif2f_test.jsonl"),
-        os.path.join(DATA_DIR, "minif2f_valid.jsonl"),
-    )
+
+    if args.goedel_pset:
+        prepare_goedel_pset(
+            os.path.join(DATA_DIR, "goedel_pset_100k.jsonl"),
+            n=args.n,
+            seed=args.seed,
+        )
+    else:
+        prepare_lean_workbook(os.path.join(DATA_DIR, "lean_workbook_train.jsonl"))
+        prepare_minif2f(
+            os.path.join(DATA_DIR, "minif2f_test.jsonl"),
+            os.path.join(DATA_DIR, "minif2f_valid.jsonl"),
+        )
 
 
 if __name__ == "__main__":
