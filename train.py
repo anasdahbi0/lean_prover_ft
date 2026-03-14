@@ -223,6 +223,7 @@ def main():
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, lora_config)
+    model.enable_input_require_grads()
     model.print_trainable_parameters()
 
     # ------------------------------------------------------------------
@@ -249,6 +250,7 @@ def main():
         lr_scheduler_type=tcfg["lr_scheduler"],
         warmup_ratio=tcfg["warmup_ratio"],
         bf16=tcfg["bf16"],
+        gradient_checkpointing=tcfg.get("gradient_checkpointing", False),
         logging_steps=tcfg["logging_steps"],
         save_strategy=tcfg["save_strategy"],
         save_total_limit=tcfg["save_total_limit"],
