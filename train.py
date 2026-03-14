@@ -200,7 +200,6 @@ def main():
         model_name,
         torch_dtype=getattr(torch, cfg["model"]["torch_dtype"]),
         trust_remote_code=cfg["model"]["trust_remote_code"],
-        device_map="auto",
     )
 
     if torch.cuda.is_available():
