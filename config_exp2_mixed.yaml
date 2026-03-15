@@ -1,0 +1,59 @@
+model:
+  name: "Qwen/Qwen3-4B-Instruct-2507"
+  # Exp 1 LoRA checkpoint to merge before Exp 2 training.
+  # Can be a HuggingFace repo ID or a local path.
+  lora_checkpoint: "yotsubian/qwen"
+  torch_dtype: "bfloat16"
+  trust_remote_code: false
+
+lora:
+  r: 32
+  lora_alpha: 64
+  # Full LoRA: attention projections + FFN projections
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  lora_dropout: 0.1
+  bias: "none"
+
+training:
+  num_epochs: 1                   # 1 epoch on ~338K mixed examples
+  per_device_batch_size: 2
+  gradient_accumulation_steps: 8  # effective batch = 2 GPUs × 2 × 8 = 32
+  learning_rate: 5.0e-5           # half of Exp 1 (2e-4), to preserve synthesis
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.05
+  bf16: true
+  gradient_checkpointing: true    # required at 4096 context on 2×H200
+  max_length: 4096                # APRIL examples can be 2-4K tokens
+  logging_steps: 50
+  save_strategy: "steps"
+  save_steps: 500
+  eval_steps: 500
+  save_total_limit: 3
+
+generation:
+  max_new_tokens: 1024            # repair outputs can be long
+  temperature: 0.6
+  n_samples: 32                   # for standard pass@32 eval
+
+paths:
+  train_data: "data/mixed_train.jsonl"
+  val_data: "data/mixed_val.jsonl"
+  checkpoint_dir: "checkpoints/exp2_mixed/"
+  results_dir: "results/"
+  data_dir: "data/"
+
+lean_server:
+  url: "http://localhost:8000"
+  timeout: 60
+  max_workers: 32
+
+huggingface:
+  push_to_hub: true
+  hub_model_id: "yotsubian/qwen-exp2-mixed"
