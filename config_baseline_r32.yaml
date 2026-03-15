@@ -20,13 +20,13 @@ lora:
 
 training:
   num_epochs: 3
-  per_device_batch_size: 4
-  gradient_accumulation_steps: 16   # effective batch = 64
+  per_device_batch_size: 8
+  gradient_accumulation_steps: 8    # effective batch = 64
   learning_rate: 2.0e-4
   lr_scheduler: "cosine"
   warmup_ratio: 0.05
   bf16: true
-  gradient_checkpointing: true      # required: activations at bs=8 exhaust 80GB
+  gradient_checkpointing: false     # flash_attention_2 handles memory efficiently
   max_length: 1024
   logging_steps: 20
   save_strategy: "epoch"
