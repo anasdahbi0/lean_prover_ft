@@ -404,14 +404,13 @@ def main():
             seed=args.seed,
         )
     elif args.numina:
-        prepare_numina(os.path.join(DATA_DIR, "numina_test.jsonl"), split="test")
+        prepare_numina(os.path.join(DATA_DIR, "numina_test.jsonl"), split="train")
     else:
         prepare_lean_workbook(os.path.join(DATA_DIR, "lean_workbook_train.jsonl"))
         prepare_minif2f(
             os.path.join(DATA_DIR, "minif2f_test.jsonl"),
             os.path.join(DATA_DIR, "minif2f_valid.jsonl"),
         )
-        prepare_numina(os.path.join(DATA_DIR, "numina_test.jsonl"), split="test")
 
 
 if __name__ == "__main__":
