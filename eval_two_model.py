@@ -188,12 +188,15 @@ def synthesis_messages(formal: str) -> list[dict]:
 
 
 def repair_messages(formal: str, failed_body: str, error: str) -> list[dict]:
+    # During training, incorrect_proof was the full Lean 4 file (headers + theorem + body).
+    # Replicate that format here so the corrector sees familiar input.
+    full_failed_file = assemble_lean_file(formal, failed_body)
     return [
         {"role": "system", "content": REPAIR_SYSTEM_PROMPT},
         {"role": "user",
          "content": (
              f"**Theorem:**\n```lean\n{formal}\n```\n\n"
-             f"**Failed proof:**\n```lean\n{failed_body}\n```\n\n"
+             f"**Failed proof:**\n```lean\n{full_failed_file}\n```\n\n"
              f"**Compiler error:**\n{error}"
          )},
     ]

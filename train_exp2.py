@@ -221,7 +221,8 @@ def main():
     logger.info(f"  Epochs        : {tcfg['num_epochs']}")
     logger.info(f"  Output dir    : {output_dir}\n")
 
-    trainer.train()
+    resume_ckpt = cfg.get("resume_from_checkpoint", False)
+    trainer.train(resume_from_checkpoint=resume_ckpt if resume_ckpt else None)
 
     # ------------------------------------------------------------------
     # Save
