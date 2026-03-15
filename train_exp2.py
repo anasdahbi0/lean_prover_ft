@@ -180,7 +180,7 @@ def main():
         warmup_ratio                = tcfg["warmup_ratio"],
         bf16                        = tcfg["bf16"],
         gradient_checkpointing      = tcfg.get("gradient_checkpointing", True),
-        max_seq_length              = tcfg["max_length"],
+        max_length                  = tcfg["max_length"],
         logging_steps               = tcfg["logging_steps"],
         eval_strategy               = "steps" if eval_dataset is not None else "no",
         **( {"eval_steps": tcfg.get("eval_steps", 500)} if eval_dataset is not None else {} ),
