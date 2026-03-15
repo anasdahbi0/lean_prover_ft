@@ -1,5 +1,6 @@
 model:
   name: "Qwen/Qwen3-4B-Instruct-2507"
+  lora_checkpoint: "yotsubian/qwen"   # r=16 adapter merged into base before new LoRA
   torch_dtype: "bfloat16"
   trust_remote_code: false
 
@@ -19,8 +20,8 @@ lora:
 
 training:
   num_epochs: 3
-  per_device_batch_size: 2
-  gradient_accumulation_steps: 32   # effective batch = 64
+  per_device_batch_size: 4
+  gradient_accumulation_steps: 16   # effective batch = 64
   learning_rate: 2.0e-4
   lr_scheduler: "cosine"
   warmup_ratio: 0.05

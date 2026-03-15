@@ -215,6 +215,20 @@ def main():
         )
 
     # ------------------------------------------------------------------
+    # Optional: merge an existing LoRA checkpoint into the base weights
+    # before applying a fresh LoRA. Set model.lora_checkpoint in config.
+    # This lets you stack a new LoRA on top of a previously trained one.
+    # ------------------------------------------------------------------
+    lora_checkpoint = cfg["model"].get("lora_checkpoint")
+    if lora_checkpoint:
+        from peft import PeftModel
+        logger.info(f"Loading existing LoRA checkpoint: {lora_checkpoint}")
+        model = PeftModel.from_pretrained(model, lora_checkpoint)
+        logger.info("Merging LoRA checkpoint into base weights (frozen)...")
+        model = model.merge_and_unload()
+        logger.info("Merge complete. Applying fresh LoRA on top.")
+
+    # ------------------------------------------------------------------
     # LoRA
     # ------------------------------------------------------------------
     lora_cfg = cfg["lora"]

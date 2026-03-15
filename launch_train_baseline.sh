@@ -70,6 +70,7 @@ echo ""
 
 mkdir -p $RESULTS
 
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 python $REPO/train.py --config config_baseline_r32.yaml 2>&1 | tee $LOG
 
 echo ""
