@@ -48,9 +48,9 @@ paths:
   data_dir: "data/"
 
 lean_server:
-  url: "http://localhost:8000"
-  timeout: 60
-  max_workers: 32
+  url: "http://localhost:8002"
+  timeout: 120
+  max_workers: 4
 
 huggingface:
   push_to_hub: true

@@ -29,7 +29,8 @@ training:
   gradient_checkpointing: false     # flash_attention_2 handles memory efficiently
   max_length: 1024
   logging_steps: 20
-  save_strategy: "epoch"
+  save_strategy: "steps"
+  save_steps: 200
   save_total_limit: 3
 
 generation:
@@ -49,5 +50,5 @@ lean_server:
   max_workers: 32
 
 huggingface:
-  push_to_hub: false
+  push_to_hub: true
   hub_model_id: "yotsubian/qwen-baseline-r32"

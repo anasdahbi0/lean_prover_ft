@@ -50,8 +50,8 @@ paths:
 
 lean_server:
   url: "http://localhost:8000"
-  timeout: 60
-  max_workers: 32
+  timeout: 120
+  max_workers: 4
 
 huggingface:
   push_to_hub: true
