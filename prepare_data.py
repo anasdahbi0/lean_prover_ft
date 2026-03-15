@@ -316,6 +316,70 @@ def prepare_minif2f(output_test, output_valid):
 
 
 # ---------------------------------------------------------------------------
+# NuminaMath-Lean
+# ---------------------------------------------------------------------------
+
+def prepare_numina(output_path, split="test"):
+    """
+    Download AI-MO/NuminaMath-Lean and extract formal statements for evaluation.
+
+    The dataset has a 'formal_statement' field ending with ':= by sorry'.
+    We strip 'sorry' to get the statement ending in ':= by', matching miniF2F format.
+
+    Output: data/numina_test.jsonl
+        {"id": "...", "formal": "theorem ... := by", "informal": "..."}
+    """
+    if os.path.exists(output_path):
+        existing = load_jsonl(output_path)
+        if existing:
+            print(f"numina_{split}.jsonl          : {len(existing)} rows  (already exists, skipping)")
+            return
+
+    print(f"Downloading AI-MO/NuminaMath-Lean ({split} split) ...")
+    ds = load_dataset("AI-MO/NuminaMath-Lean", split=split)
+
+    if len(ds) > 0:
+        print(f"  Columns: {list(ds.features.keys())}")
+
+    rows = []
+    skipped = 0
+    for example in ds:
+        formal = (
+            example.get("formal_statement")
+            or example.get("formal")
+            or example.get("statement", "")
+        ).strip()
+
+        if not formal:
+            skipped += 1
+            continue
+
+        # Strip trailing sorry (same logic as miniF2F)
+        if formal.endswith(":= by sorry"):
+            formal = formal[: -len("sorry")].rstrip()
+        elif formal.endswith("sorry"):
+            formal = formal[: -len("sorry")].rstrip()
+
+        # Skip if no ':= by' — can't evaluate tactic proof generation
+        if ":= by" not in formal:
+            skipped += 1
+            continue
+
+        informal = (
+            example.get("informal_statement")
+            or example.get("informal")
+            or example.get("problem", "")
+        )
+        row_id = example.get("id", example.get("name", example.get("problem_id", "")))
+
+        rows.append({"id": row_id, "formal": formal, "informal": informal})
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    save_jsonl(output_path, rows)
+    print(f"numina_{split}.jsonl          : {len(rows)} rows  ({skipped} skipped)")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -324,8 +388,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--goedel-pset", action="store_true",
                         help="Only run prepare_goedel_pset()")
+    parser.add_argument("--numina", action="store_true",
+                        help="Only run prepare_numina()")
     parser.add_argument("--n", type=int, default=100_000,
-                        help="Number of rows to sample (default 100000)")
+                        help="Number of rows to sample for goedel-pset (default 100000)")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -337,12 +403,15 @@ def main():
             n=args.n,
             seed=args.seed,
         )
+    elif args.numina:
+        prepare_numina(os.path.join(DATA_DIR, "numina_test.jsonl"), split="test")
     else:
         prepare_lean_workbook(os.path.join(DATA_DIR, "lean_workbook_train.jsonl"))
         prepare_minif2f(
             os.path.join(DATA_DIR, "minif2f_test.jsonl"),
             os.path.join(DATA_DIR, "minif2f_valid.jsonl"),
         )
+        prepare_numina(os.path.join(DATA_DIR, "numina_test.jsonl"), split="test")
 
 
 if __name__ == "__main__":

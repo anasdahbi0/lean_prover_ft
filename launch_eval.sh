@@ -131,66 +131,74 @@ echo "  Response: $PROOF_TEST"
 mkdir -p $RESULTS
 
 # ----------------------------------------------------------
-# 6. Exp A — yotsubian/qwen-exp-a on miniF2F
+# 6 + 7. Run Exp A then Exp B sequentially in one background job.
+#
+# WHY sequential: both load Qwen3-4B onto the same H100. Running in
+# parallel fights for GPU bandwidth during generation, making both 2×
+# slower with no benefit. Sequential uses the GPU fully for each eval.
+#
+# Total expected time: ~8-12 hours (Exp A ~4-5h, Exp B ~4-6h).
 # ----------------------------------------------------------
 echo ""
-echo "[6/7] Launching Exp A (qwen-exp-a, pass@32 on miniF2F)..."
-echo "  Adapter : yotsubian/qwen-exp-a"
-echo "  Dataset : data/minif2f_test.jsonl"
-echo "  Output  : $RESULTS/exp_a/"
-echo ""
+echo "[6+7/7] Launching sequential eval pipeline (Exp A → Exp B)..."
 
-nohup python $REPO/evaluate.py \
+nohup bash -c "
+set -e
+source ~/.elan/env
+cd $REPO
+
+echo '=== EXP A START ===' >> $RESULTS/pipeline.log
+date >> $RESULTS/pipeline.log
+
+python $REPO/evaluate.py \
     --config  config_exp_a.yaml \
     --adapter yotsubian/qwen-exp-a \
     --dataset data/minif2f_test.jsonl \
     --output  $RESULTS/exp_a.json \
-    > $RESULTS/exp_a.log 2>&1 &
-EXP_A_PID=$!
-echo "  Exp A PID: $EXP_A_PID"
-echo "  Log: tail -f $RESULTS/exp_a.log"
+    2>&1 | tee $RESULTS/exp_a.log
 
-# ----------------------------------------------------------
-# 7. Exp B — Generator (yotsubian/qwen) + Corrector (yotsubian/qwen-corrector)
-# ----------------------------------------------------------
-echo ""
-echo "[7/7] Launching Exp B (two-model self-correction)..."
-echo "  Generator : yotsubian/qwen"
-echo "  Corrector : yotsubian/qwen-corrector"
-echo "  Output    : $RESULTS/exp_b/"
-echo ""
+echo '=== EXP A DONE ===' >> $RESULTS/pipeline.log
+date >> $RESULTS/pipeline.log
 
-# Note: Exp B loads two LoRA adapters into one base model (~8GB VRAM)
-# Run on same GPU as Exp A only if VRAM allows; otherwise stagger.
-# With H100 80GB, both fit. Launching with 30s delay to avoid HF download collision.
-sleep 30
+echo '=== EXP B START ===' >> $RESULTS/pipeline.log
+date >> $RESULTS/pipeline.log
 
-nohup python $REPO/eval_two_model.py \
+python $REPO/eval_two_model.py \
     --config             config_corrector.yaml \
     --generator_adapter  yotsubian/qwen \
     --corrector_adapter  yotsubian/qwen-corrector \
     --dataset            data/minif2f_test.jsonl \
-    --max_rounds         12 \
+    --max_rounds         3 \
+    --no_sampling_baseline \
     --output_dir         $RESULTS/exp_b/ \
-    > $RESULTS/exp_b.log 2>&1 &
-EXP_B_PID=$!
-echo "  Exp B PID: $EXP_B_PID"
-echo "  Log: tail -f $RESULTS/exp_b.log"
+    2>&1 | tee $RESULTS/exp_b.log
+
+echo '=== EXP B DONE ===' >> $RESULTS/pipeline.log
+date >> $RESULTS/pipeline.log
+echo 'ALL DONE' >> $RESULTS/pipeline.log
+" > $RESULTS/pipeline_stdout.log 2>&1 &
+
+PIPELINE_PID=$!
+echo "  Pipeline PID: $PIPELINE_PID"
 
 # ----------------------------------------------------------
 # Summary
 # ----------------------------------------------------------
 echo ""
 echo "================================================"
-echo " All jobs launched."
+echo " Eval pipeline launched."
 echo "================================================"
-echo " Lean server : PID $SERVER_PID   (port $SERVER_PORT)"
-echo " Exp A       : PID $EXP_A_PID   → $RESULTS/exp_a.log"
-echo " Exp B       : PID $EXP_B_PID   → $RESULTS/exp_b.log"
+echo " Lean server : PID $SERVER_PID (port $SERVER_PORT)"
+echo " Pipeline    : PID $PIPELINE_PID"
+echo "   Exp A → $RESULTS/exp_a.log"
+echo "   Exp B → $RESULTS/exp_b.log"
+echo "   Progress → $RESULTS/pipeline.log"
 echo ""
-echo " Monitor both:"
-echo "   tail -f $RESULTS/exp_a.log $RESULTS/exp_b.log"
+echo " Monitor:"
+echo "   tail -f $RESULTS/exp_a.log          # while Exp A runs"
+echo "   tail -f $RESULTS/exp_b.log          # while Exp B runs"
+echo "   cat $RESULTS/pipeline.log           # phase timestamps"
 echo ""
-echo " Expected completion: 5-8 hours from now"
-echo " Results will be in: $RESULTS/"
+echo " Exp A finishes in ~4-5h, Exp B ~4-6h after that."
+echo " Results: $RESULTS/exp_a.json  and  $RESULTS/exp_b/"
 echo "================================================"
