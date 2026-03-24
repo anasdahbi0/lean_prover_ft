@@ -21,6 +21,7 @@ import asyncio
 import json
 import os
 import signal
+import subprocess
 from aiohttp import web
 
 WORKSPACE = "/workspace/Goedel-Prover/mathlib4"
@@ -29,6 +30,33 @@ MAX_CONCURRENT = 4   # DO NOT INCREASE — server silently fails above this
 TIMEOUT = 120        # DO NOT DECREASE — proofs need up to 90s
 
 semaphore: asyncio.Semaphore = None  # initialised in main()
+
+
+def _run_repl_sync(repl_input: bytes) -> dict:
+    """
+    Blocking subprocess call to lake exe repl.
+    Runs in a thread pool so it doesn't block the event loop.
+    Uses subprocess.run (same as the verified-working direct test).
+    """
+    try:
+        result = subprocess.run(
+            ["bash", "-c", f"source {LEAN_ENV} && lake exe repl"],
+            input=repl_input,
+            capture_output=True,
+            cwd=WORKSPACE,
+            timeout=TIMEOUT,
+        )
+        stdout_text = result.stdout.decode("utf-8", errors="replace").strip()
+        if stdout_text:
+            try:
+                return json.loads(stdout_text)
+            except json.JSONDecodeError:
+                return {"messages": [{"severity": "error", "data": f"repl returned non-JSON: {stdout_text[:200]}"}], "sorries": []}
+        return {"messages": [], "sorries": []}
+    except subprocess.TimeoutExpired:
+        return {"messages": [{"severity": "error", "data": f"timeout after {TIMEOUT}s"}], "sorries": []}
+    except Exception as e:
+        return {"messages": [{"severity": "error", "data": str(e)}], "sorries": []}
 
 
 async def run_lean_repl(command: dict) -> dict:
@@ -40,40 +68,8 @@ async def run_lean_repl(command: dict) -> dict:
     repl_input = (json.dumps(repl_command, ensure_ascii=False) + "\r\n\r\n").encode()
 
     async with semaphore:
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "bash", "-c", f"source {LEAN_ENV} && lake exe repl",
-                cwd=WORKSPACE,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                preexec_fn=os.setsid,  # new process group → clean kill on timeout
-            )
-
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(input=repl_input),
-                    timeout=TIMEOUT,
-                )
-            except asyncio.TimeoutError:
-                # Kill the entire process group so no zombie lake processes remain
-                try:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                await proc.wait()
-                return {"messages": [{"severity": "error", "data": f"timeout after {TIMEOUT}s"}], "sorries": []}
-
-        except Exception as e:
-            return {"messages": [{"severity": "error", "data": str(e)}], "sorries": []}
-
-    stdout_text = stdout.decode("utf-8", errors="replace").strip()
-    if stdout_text:
-        try:
-            return json.loads(stdout_text)
-        except json.JSONDecodeError:
-            return {"messages": [{"severity": "error", "data": f"repl returned non-JSON: {stdout_text[:200]}"}], "sorries": []}
-    return {"messages": [], "sorries": []}
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _run_repl_sync, repl_input)
 
 
 async def handle_post(request: web.Request) -> web.Response:
