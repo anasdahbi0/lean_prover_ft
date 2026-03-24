@@ -119,8 +119,7 @@ def main():
         print(f"      got:      {got_str}")
         if result["errors"]:
             print(f"      errors:   {result['errors'][0]['data'][:120]}")
-        if not ok:
-            print(f"      raw:      {json.dumps(result['_raw'])[:300]}")
+        print(f"      raw:      {json.dumps(result['_raw'])[:300]}")
         print()
 
     if passed_all:
