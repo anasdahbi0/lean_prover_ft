@@ -60,7 +60,7 @@ CASES = [
 ]
 
 
-def verify(code: str) -> dict:
+def verify(code: str) -> tuple:
     resp = requests.post(SERVER_URL, json={
         "cmd": code,
         "allTactics": False,
@@ -84,7 +84,7 @@ def verify(code: str) -> dict:
             for w in warnings
         )
     )
-    return {"pass": passed, "complete": complete, "errors": errors, "sorries": sorries}
+    return {"pass": passed, "complete": complete, "errors": errors, "sorries": sorries, "_raw": raw}
 
 
 def main():
@@ -119,6 +119,8 @@ def main():
         print(f"      got:      {got_str}")
         if result["errors"]:
             print(f"      errors:   {result['errors'][0]['data'][:120]}")
+        if not ok:
+            print(f"      raw:      {json.dumps(result['_raw'])[:300]}")
         print()
 
     if passed_all:
