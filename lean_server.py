@@ -39,6 +39,8 @@ def _run_repl_sync(repl_input: bytes) -> dict:
     Uses subprocess.run (same as the verified-working direct test).
     """
     print(f"[REPL] lake exe repl  cwd={WORKSPACE}", flush=True)
+    env = os.environ.copy()
+    env["ELAN_HOME"] = os.path.expanduser("~/.elan")
     try:
         result = subprocess.run(
             ["lake", "exe", "repl"],
@@ -46,6 +48,7 @@ def _run_repl_sync(repl_input: bytes) -> dict:
             capture_output=True,
             cwd=WORKSPACE,
             timeout=TIMEOUT,
+            env=env,
         )
         print(f"[REPL] rc={result.returncode}  stdout={result.stdout[:200]!r}  stderr={result.stderr[:200]!r}", flush=True)
         stdout_text = result.stdout.decode("utf-8", errors="replace").strip()
