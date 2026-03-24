@@ -12,13 +12,13 @@ lora:
 
 training:
   num_epochs: 3
-  per_device_batch_size: 2
-  gradient_accumulation_steps: 3
+  per_device_batch_size: 1
+  gradient_accumulation_steps: 6
   learning_rate: 0.0002
   lr_scheduler: "cosine"
   warmup_ratio: 0.05
   bf16: true
-  gradient_checkpointing: false
+  gradient_checkpointing: true
   logging_steps: 20
   save_strategy: "epoch"
   save_total_limit: 3
