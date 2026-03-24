@@ -38,10 +38,10 @@ def _run_repl_sync(repl_input: bytes) -> dict:
     Runs in a thread pool so it doesn't block the event loop.
     Uses subprocess.run (same as the verified-working direct test).
     """
-    print(f"[REPL] cmd: source {LEAN_ENV} && lake exe repl  cwd={WORKSPACE}", flush=True)
+    print(f"[REPL] lake exe repl  cwd={WORKSPACE}", flush=True)
     try:
         result = subprocess.run(
-            ["bash", "-c", f"source {LEAN_ENV} && lake exe repl"],
+            ["lake", "exe", "repl"],
             input=repl_input,
             capture_output=True,
             cwd=WORKSPACE,
