@@ -38,6 +38,7 @@ def _run_repl_sync(repl_input: bytes) -> dict:
     Runs in a thread pool so it doesn't block the event loop.
     Uses subprocess.run (same as the verified-working direct test).
     """
+    print(f"[REPL] cmd: source {LEAN_ENV} && lake exe repl  cwd={WORKSPACE}", flush=True)
     try:
         result = subprocess.run(
             ["bash", "-c", f"source {LEAN_ENV} && lake exe repl"],
@@ -46,6 +47,7 @@ def _run_repl_sync(repl_input: bytes) -> dict:
             cwd=WORKSPACE,
             timeout=TIMEOUT,
         )
+        print(f"[REPL] rc={result.returncode}  stdout={result.stdout[:200]!r}  stderr={result.stderr[:200]!r}", flush=True)
         stdout_text = result.stdout.decode("utf-8", errors="replace").strip()
         if stdout_text:
             try:
@@ -54,8 +56,10 @@ def _run_repl_sync(repl_input: bytes) -> dict:
                 return {"messages": [{"severity": "error", "data": f"repl returned non-JSON: {stdout_text[:200]}"}], "sorries": []}
         return {"messages": [], "sorries": []}
     except subprocess.TimeoutExpired:
+        print("[REPL] TIMEOUT", flush=True)
         return {"messages": [{"severity": "error", "data": f"timeout after {TIMEOUT}s"}], "sorries": []}
     except Exception as e:
+        print(f"[REPL] EXCEPTION: {e}", flush=True)
         return {"messages": [{"severity": "error", "data": str(e)}], "sorries": []}
 
 
