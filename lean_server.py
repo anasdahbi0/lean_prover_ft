@@ -32,7 +32,11 @@ semaphore: asyncio.Semaphore = None  # initialised in main()
 
 async def run_lean_repl(command: dict) -> dict:
     """Run lake exe repl with the given command, respecting the concurrency limit."""
-    repl_input = (json.dumps(command, ensure_ascii=False) + "\r\n\r\n").encode()
+    # The REPL only understands {"cmd": ..., "env": ...} — strip all other fields
+    repl_command = {"cmd": command["cmd"]}
+    if "env" in command:
+        repl_command["env"] = command["env"]
+    repl_input = (json.dumps(repl_command, ensure_ascii=False) + "\r\n\r\n").encode()
 
     async with semaphore:
         try:
