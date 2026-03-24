@@ -85,7 +85,7 @@ async def handle_health(request: web.Request) -> web.Response:
 
 
 def main():
-    global WORKSPACE, semaphore
+    global WORKSPACE, TIMEOUT, semaphore
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--workspace", default=WORKSPACE)
@@ -95,7 +95,6 @@ def main():
     args = parser.parse_args()
 
     WORKSPACE = args.workspace
-    global TIMEOUT
     TIMEOUT = args.timeout
 
     semaphore = asyncio.Semaphore(args.max_concurrent)
