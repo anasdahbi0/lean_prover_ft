@@ -22,7 +22,7 @@ training:
   logging_steps: 20
   save_strategy: "epoch"
   save_total_limit: 3
-  max_length: 1024
+  max_length: 512
 
 generation:
   max_new_tokens: 512
