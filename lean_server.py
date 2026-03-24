@@ -67,6 +67,8 @@ async def run_lean_repl(command: dict) -> dict:
             return {"messages": [{"severity": "error", "data": str(e)}], "sorries": []}
 
     stdout_text = stdout.decode("utf-8", errors="replace").strip()
+    stderr_text = stderr.decode("utf-8", errors="replace").strip()
+    print(f"[DEBUG] stdout={stdout_text[:200]!r}  stderr={stderr_text[:200]!r}", flush=True)
     if stdout_text:
         try:
             return json.loads(stdout_text)
