@@ -40,7 +40,7 @@ def _run_repl_sync(repl_input: bytes) -> dict:
     """
     print(f"[REPL] lake exe repl  cwd={WORKSPACE}", flush=True)
     env = os.environ.copy()
-    env["ELAN_HOME"] = os.path.expanduser("~/.elan")
+    env["ELAN_HOME"] = "/tmp/elan"
     try:
         result = subprocess.run(
             ["lake", "exe", "repl"],
