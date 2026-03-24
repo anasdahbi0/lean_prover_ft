@@ -24,6 +24,7 @@ import signal
 from aiohttp import web
 
 WORKSPACE = "/workspace/Goedel-Prover/mathlib4"
+LEAN_ENV = "~/.elan/env"   # path to elan env script; override with --lean-env
 MAX_CONCURRENT = 4   # DO NOT INCREASE — server silently fails above this
 TIMEOUT = 120        # DO NOT DECREASE — proofs need up to 90s
 
@@ -41,7 +42,7 @@ async def run_lean_repl(command: dict) -> dict:
     async with semaphore:
         try:
             proc = await asyncio.create_subprocess_exec(
-                "bash", "-c", "source ~/.elan/env && lake exe repl",
+                "bash", "-c", f"source {LEAN_ENV} && lake exe repl",
                 cwd=WORKSPACE,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
@@ -67,8 +68,6 @@ async def run_lean_repl(command: dict) -> dict:
             return {"messages": [{"severity": "error", "data": str(e)}], "sorries": []}
 
     stdout_text = stdout.decode("utf-8", errors="replace").strip()
-    stderr_text = stderr.decode("utf-8", errors="replace").strip()
-    print(f"[DEBUG] stdout={stdout_text[:200]!r}  stderr={stderr_text[:200]!r}", flush=True)
     if stdout_text:
         try:
             return json.loads(stdout_text)
@@ -91,16 +90,19 @@ async def handle_health(request: web.Request) -> web.Response:
 
 
 def main():
-    global WORKSPACE, TIMEOUT, semaphore
+    global WORKSPACE, LEAN_ENV, TIMEOUT, semaphore
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--workspace", default=WORKSPACE)
+    parser.add_argument("--lean-env", default=LEAN_ENV,
+                        help="Path to elan env script (default: ~/.elan/env)")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--timeout", type=int, default=TIMEOUT)
     parser.add_argument("--max-concurrent", type=int, default=MAX_CONCURRENT)
     args = parser.parse_args()
 
     WORKSPACE = args.workspace
+    LEAN_ENV = args.lean_env
     TIMEOUT = args.timeout
 
     semaphore = asyncio.Semaphore(args.max_concurrent)
