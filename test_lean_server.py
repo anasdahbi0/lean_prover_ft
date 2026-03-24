@@ -84,7 +84,7 @@ def verify(code: str) -> tuple:
             for w in warnings
         )
     )
-    return {"pass": passed, "complete": complete, "errors": errors, "sorries": sorries, "_raw": raw}
+    return {"pass": passed, "complete": complete, "errors": errors, "sorries": sorries}
 
 
 def main():
@@ -119,7 +119,6 @@ def main():
         print(f"      got:      {got_str}")
         if result["errors"]:
             print(f"      errors:   {result['errors'][0]['data'][:120]}")
-        print(f"      raw:      {json.dumps(result['_raw'])[:300]}")
         print()
 
     if passed_all:

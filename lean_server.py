@@ -38,7 +38,6 @@ def _run_repl_sync(repl_input: bytes) -> dict:
     Runs in a thread pool so it doesn't block the event loop.
     Uses subprocess.run (same as the verified-working direct test).
     """
-    print(f"[REPL] lake exe repl  cwd={WORKSPACE}", flush=True)
     env = os.environ.copy()
     env["ELAN_HOME"] = "/tmp/elan"
     try:
