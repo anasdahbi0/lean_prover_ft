@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # ============================================================
-# launch_train_baseline.sh
+# launch_train_r32.sh
 #
 # Fine-tunes Qwen3-4B on lean_workbook_train.jsonl
-# using LoRA rank=32 on a single H100 SXM.
+# using LoRA rank=32, matching the first model's setup exactly
+# (attention-only target modules, same batch/lr/epoch settings).
 #
 # Expected time : ~1.5 hours (3 epochs, 29.7K examples)
 #
 # Usage:
-#   bash /workspace/lean_prover_ft/launch_train_baseline.sh
+#   bash /workspace/lean_prover_ft/launch_train_r32.sh
 # ============================================================
 
 set -euo pipefail
@@ -16,10 +17,10 @@ set -euo pipefail
 WORKSPACE=/workspace
 REPO=/workspace/lean_prover_ft
 RESULTS=$REPO/results
-LOG=$RESULTS/train_baseline.log
+LOG=$RESULTS/train_r32.log
 
 echo "================================================"
-echo " Baseline Training: Qwen3-4B LoRA rank=32"
+echo " Training: Qwen3-4B LoRA rank=32 (config_r32)"
 echo " $(date)"
 echo "================================================"
 
@@ -64,18 +65,18 @@ print(f'  GPU: {gpu}  ({mem:.0f} GB)')
 # ----------------------------------------------------------
 echo ""
 echo "[4/4] Starting training..."
-echo "  Config : config_baseline_r32.yaml"
+echo "  Config : config_r32.yaml"
 echo "  Log    : $LOG"
 echo ""
 
 mkdir -p $RESULTS
 
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-python $REPO/train.py --config config_baseline_r32.yaml 2>&1 | tee $LOG
+python $REPO/train.py --config config_r32.yaml 2>&1 | tee $LOG
 
 echo ""
 echo "================================================"
 echo " Training complete — $(date)"
-echo " Adapter saved to: checkpoints/qwen-baseline-r32/"
+echo " Adapter saved to: checkpoints/qwen-r32/"
 echo " Log: $LOG"
 echo "================================================"

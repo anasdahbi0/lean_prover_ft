@@ -4,8 +4,8 @@ model:
   trust_remote_code: false
 
 lora:
-  r: 16
-  lora_alpha: 32
+  r: 32
+  lora_alpha: 64
   target_modules: ["q_proj", "v_proj", "k_proj", "o_proj"]
   lora_dropout: 0.05
   bias: "none"
@@ -38,3 +38,7 @@ lean_server:
   url: "http://localhost:8000"
   timeout: 60
   max_workers: 32
+
+huggingface:
+  push_to_hub: true
+  hub_model_id: "yotsubian/qwen-r32"

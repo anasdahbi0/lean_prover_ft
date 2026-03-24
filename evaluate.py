@@ -142,9 +142,14 @@ def verify_lean4_http(code, server_url, timeout=60):
 def assemble_lean_file(formal_statement, proof_body):
     """
     Assemble a complete Lean 4 file ready for verification.
-    formal_statement ends with ':= by'; proof_body is the tactic block.
+    Normalises the statement to end with ':= by' so that bare tactic blocks
+    (as produced by the model) are always syntactically valid.
+    minif2f statements end with ':=' while lean_workbook ends with ':= by'.
     """
-    return LEAN4_DEFAULT_HEADER + formal_statement + "\n" + proof_body
+    stmt = formal_statement.rstrip()
+    if stmt.endswith(":=") and not stmt.endswith(":= by"):
+        stmt = stmt + " by"
+    return LEAN4_DEFAULT_HEADER + stmt + "\n" + proof_body
 
 
 # ---------------------------------------------------------------------------
@@ -226,13 +231,17 @@ def generate_proofs(model, tokenizer, prompt, n_samples, max_new_tokens, tempera
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config",  default="config.yaml")
-    parser.add_argument("--dataset", required=True,
+    parser.add_argument("--config",   default="config.yaml")
+    parser.add_argument("--dataset",  required=True,
                         help="Path to JSONL eval file (minif2f_test.jsonl etc.)")
-    parser.add_argument("--adapter", default=None,
+    parser.add_argument("--adapter",  default=None,
                         help="Path to LoRA adapter directory (omit for baseline)")
-    parser.add_argument("--output",  required=True,
+    parser.add_argument("--output",   required=True,
                         help="Path to write results JSON")
+    parser.add_argument("--limit",    type=int, default=None,
+                        help="Only evaluate the first N problems (smoke test)")
+    parser.add_argument("--n-samples", type=int, default=None,
+                        help="Override config n_samples (e.g. 1 for fast smoke test)")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -250,7 +259,7 @@ def main():
     logger = logging.getLogger(__name__)
 
     model_name  = cfg["model"]["name"]
-    n_samples   = cfg["generation"]["n_samples"]
+    n_samples   = args.n_samples if args.n_samples is not None else cfg["generation"]["n_samples"]
     max_new_tok = cfg["generation"]["max_new_tokens"]
     temperature = cfg["generation"]["temperature"]
     server_url  = cfg["lean_server"]["url"]
@@ -301,7 +310,11 @@ def main():
     # ------------------------------------------------------------------
     logger.info(f"Loading dataset: {args.dataset}")
     problems = load_jsonl(args.dataset)
-    logger.info(f"Problems: {len(problems)}")
+    if args.limit is not None:
+        problems = problems[:args.limit]
+        logger.info(f"Problems: {len(problems)} (limited to {args.limit})")
+    else:
+        logger.info(f"Problems: {len(problems)}")
 
     # Normalise field names.
     # lean_workbook_train.jsonl uses 'statement'; minif2f_*.jsonl uses 'formal'.

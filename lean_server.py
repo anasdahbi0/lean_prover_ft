@@ -57,18 +57,18 @@ async def run_lean_repl(command: dict) -> dict:
                 except ProcessLookupError:
                     pass
                 await proc.wait()
-                return {"messages": [], "errors": [{"severity": "error", "data": f"timeout after {TIMEOUT}s"}]}
+                return {"messages": [{"severity": "error", "data": f"timeout after {TIMEOUT}s"}], "sorries": []}
 
         except Exception as e:
-            return {"messages": [], "errors": [{"severity": "error", "data": str(e)}]}
+            return {"messages": [{"severity": "error", "data": str(e)}], "sorries": []}
 
     stdout_text = stdout.decode("utf-8", errors="replace").strip()
     if stdout_text:
         try:
             return json.loads(stdout_text)
         except json.JSONDecodeError:
-            pass
-    return {"messages": [], "errors": []}
+            return {"messages": [{"severity": "error", "data": f"repl returned non-JSON: {stdout_text[:200]}"}], "sorries": []}
+    return {"messages": [], "sorries": []}
 
 
 async def handle_post(request: web.Request) -> web.Response:
