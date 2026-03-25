@@ -316,10 +316,11 @@ def main():
     else:
         logger.info(f"Problems: {len(problems)}")
 
-    # Normalise field names.
-    # lean_workbook_train.jsonl uses 'statement'; minif2f_*.jsonl uses 'formal'.
+    # Normalise field names across datasets:
+    # lean_workbook_train.jsonl uses 'statement'
+    # cat-searcher/minif2f-lean4 uses 'formal_statement'
     def get_formal(prob):
-        return prob.get("formal", prob.get("statement", ""))
+        return prob.get("formal_statement", prob.get("formal", prob.get("statement", "")))
 
     def get_id(prob):
         return prob.get("id", prob.get("name", ""))
