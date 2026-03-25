@@ -204,7 +204,7 @@ def main():
         model_name,
         torch_dtype=getattr(torch, cfg["model"]["torch_dtype"]),
         trust_remote_code=cfg["model"]["trust_remote_code"],
-        attn_implementation="eager",
+        attn_implementation="sdpa",
     )
 
     if torch.cuda.is_available():
