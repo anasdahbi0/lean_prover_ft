@@ -147,7 +147,10 @@ def assemble_lean_file(formal_statement, proof_body):
     minif2f statements end with ':=' while lean_workbook ends with ':= by'.
     """
     stmt = formal_statement.rstrip()
-    if stmt.endswith(":=") and not stmt.endswith(":= by"):
+    # minif2f statements end with ':= sorry' — strip it
+    if stmt.endswith(":= sorry"):
+        stmt = stmt[:-len(":= sorry")].rstrip() + " := by"
+    elif stmt.endswith(":=") and not stmt.endswith(":= by"):
         stmt = stmt + " by"
     return LEAN4_DEFAULT_HEADER + stmt + "\n" + proof_body
 
