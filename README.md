@@ -86,6 +86,18 @@ python evaluate.py \
 python results_table.py results/eval_baseline.json results/eval_finetuned.json
 ```
 
+### 6. Run demo
+
+Generates a proof for a miniF2F problem and verifies it with the Lean REPL.
+
+```bash
+# Start the Lean server (in a separate terminal)
+python lean_server.py --workspace /path/to/mathlib4 --port 8000
+
+# Run the demo
+python demo.py
+```
+
 ## Configuration
 
 Key hyperparameters (`config.yaml`):
