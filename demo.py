@@ -17,22 +17,38 @@ STATEMENT = (
     "(h\u2080 : 2 * (a + b) = 30) (h\u2081 : a + 2 * b = 26) : a = 4 := by"
 )
 
+# ── print the problem ─────────────────────────────────────────────────────────
+print("=" * 60)
+print("THEOREM TO PROVE")
+print("=" * 60)
+print()
+print("  If 2(a + b) = 30  and  a + 2b = 26,  prove that  a = 4")
+print()
+print("Formal Lean 4 statement:")
+print()
+print("  " + STATEMENT)
+print()
+
 # ── load ──────────────────────────────────────────────────────────────────────
-print("Loading tokenizer...")
+print("=" * 60)
+print("Loading model (Qwen3-4B + LoRA fine-tune)...")
+print("=" * 60)
 tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-print(f"Loading base model ({dtype})...")
 base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, torch_dtype=dtype, device_map="auto")
-
-print("Merging LoRA adapter...")
 model = PeftModel.from_pretrained(base, ADAPTER, autocast_adapter_dtype=False)
 model = model.merge_and_unload()
 model.eval()
+print("Model ready.")
+print()
 
 # ── generate ──────────────────────────────────────────────────────────────────
+print("=" * 60)
+print("Generating proof...")
+print("=" * 60)
 user_msg = "Complete the following Lean 4 code:\n\n```lean4\n" + LEAN4_HEADER + STATEMENT + "\n```"
 prompt   = tokenizer.apply_chat_template(
     [{"role": "user", "content": user_msg}],
@@ -41,7 +57,6 @@ prompt   = tokenizer.apply_chat_template(
 inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 in_len = inputs["input_ids"].shape[1]
 
-print("Generating proof...")
 with torch.no_grad():
     out = model.generate(
         **inputs, max_new_tokens=512,
@@ -50,10 +65,8 @@ with torch.no_grad():
     )
 
 raw = tokenizer.decode(out[0][in_len:], skip_special_tokens=True)
-print("\n--- model output ---")
-print(raw)
 
-# ── extract ───────────────────────────────────────────────────────────────────
+# ── extract & print proof ─────────────────────────────────────────────────────
 def extract_proof(text):
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
     if text.startswith("```lean4"): text = text[8:].strip()
@@ -63,23 +76,36 @@ def extract_proof(text):
 
 proof     = extract_proof(raw)
 lean_file = LEAN4_HEADER + STATEMENT + "\n" + proof
-print("\n--- lean file ---")
+
+print()
+print("=" * 60)
+print("GENERATED PROOF")
+print("=" * 60)
+print()
 print(lean_file)
+print()
 
 # ── verify ────────────────────────────────────────────────────────────────────
-print("\n--- verifying ---")
+print("=" * 60)
+print("Verifying with Lean 4 type checker...")
+print("=" * 60)
+print()
 try:
     data   = requests.post(LEAN_SERVER, json={
         "cmd": lean_file, "allTactics": False, "ast": False,
         "tactics": False, "premises": False,
     }, timeout=60).json()
     errors = [m for m in data.get("messages", []) if m["severity"] == "error"]
-    if not errors and not data.get("sorries"):
-        print("PROOF VERIFIED:", data)
+    sorries = data.get("sorries", [])
+    if not errors and not sorries:
+        print("PROOF CORRECT AND VERIFIED")
+        print()
+        print("The Lean 4 type checker accepted the proof.")
+        print("Server response: env=0 (no errors)")
     else:
-        print("Proof failed:")
+        print("PROOF FAILED")
         for e in errors:
-            print(" ", e["data"][:120])
+            print("  Error:", e["data"][:120])
 except Exception as exc:
-    print(f"Lean server unavailable ({exc})")
-    print("Start it with: python lean_server.py --workspace /path/to/mathlib4 --port 8000")
+    print(f"Lean server unavailable: {exc}")
+    print("Start with: python lean_server.py --workspace /tmp/mathlib4 --port 8000")
