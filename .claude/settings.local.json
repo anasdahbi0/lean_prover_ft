@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebSearch",
-      "Bash(curl -s https://api.github.com/repos/mjun0812/flash-attention-prebuild-wheels/releases)"
-    ]
-  }
-}
